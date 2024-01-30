@@ -1,0 +1,30 @@
+def label = "worker-${UUID.randomUUID().toString()}"
+podTemplate(label: label,  imagePullSecrets: [ 'regcred' ], containers: [
+  containerTemplate(name: 'docker', image: 'suresha52/kaniko:v1', command: '/busybox/cat', ttyEnabled: true),
+  containerTemplate(name: 'kubectl', image: 'suresha52/kubectl:v5', command: 'cat', ttyEnabled: true)
+])
+{
+  node(label) {
+
+    stage("Create Docker image") {
+      container('docker') {
+          withCredentials([sshUserPrivateKey(credentialsId: 'bitbucketkey', keyFileVariable: 'bitbucketkey')]) {
+            git credentialsId: 'bitbucketkey', url: "git@github.com:SureshP44/Plivo.git", branch: "main"
+            sh """
+                /kaniko/executor -f Plivo/middleware --insecure --skip-tls-verify --cache=false --destination=suresha52/middleware:v${BUILD_NUMBER}
+            """
+          }
+      }
+    }
+    stage("update docker image version"){
+        container('kubectl') {
+              withCredentials([string(credentialsId: 'AWS_ACCESS_KEY_ID', variable: 'AWS_ACCESS_KEY_ID'), string(credentialsId: 'AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY'), string(credentialsId: 'AWS_DEFAULT_REGION', variable: 'AWS_DEFAULT_REGION')]) {
+              sh """
+                  aws eks update-kubeconfig --name plivo-cluster
+                  kubectl set image deployment.apps/middleware middleware=suresha52/middleware:v${BUILD_NUMBER} --namespace middleware
+              """
+            }
+        }
+    }
+  }
+}

@@ -1,0 +1,10 @@
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: mysql
+  namespace: dbs
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: mysql

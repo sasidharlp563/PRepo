@@ -1,0 +1,71 @@
+alertmanagerFiles:
+  alertmanager.yml:
+    global:
+      resolve_timeout: 1m
+      route:
+        group_by: [Alertname]
+        receiver: 'email'
+        routes:
+        - match_re:
+            alertname: .*application-alert.*
+          receiver: team-pager-infra-team
+
+      receivers:
+      - name: 'email'
+        email_configs:
+          - smarthost: 'smtp.gmail.com:587'
+            auth_username: 'sureshperumal41@gmail.com'
+            auth_password: ""
+            from: 'sureshperumal41@gmail.com'
+            to: 'sureshperumal41@gmail.com'
+            headers:
+              subject: 'Prometheus Mail Alerts'
+
+
+serverFiles:
+  alerting_rules.yml:
+    groups:
+      - name: application-alert
+        rules:
+        - alert: application-alert
+          expr: probe_success{instance="http://middleware.middleware:80/health-check"}==1
+          for: 0m
+          labels:
+            severity: critical
+          annotations:
+            summary: Application is down 
+            description: "Application is down"
+  prometheus.yml:
+    scrape_configs:
+      - job_name: blackbox-https
+        scrape_timeout: 15s
+        scrape_interval: 15s
+        metrics_path: /probe
+        params:
+          module: [http_2xx]
+        static_configs:
+        - targets:
+            - http://middleware.middleware:80/health-check
+        relabel_configs:
+        - source_labels: [__address__]
+          target_label: __param_target
+        - source_labels: [__param_target]
+          target_label: instance
+        - target_label: __address__
+          replacement: blackbox-exporter-prometheus-blackbox-exporter.monitoring:9115
+      - job_name: blackbox-tcp
+        scrape_timeout: 15s
+        scrape_interval: 15s
+        metrics_path: /probe
+        params:
+          module: [ tcp_connect ]
+        static_configs:
+          - targets:
+              - mysql-0.mysql.dbs:3306
+        relabel_configs:
+          - source_labels: [ __address__ ]
+            target_label: __param_target
+          - source_labels: [ __param_target ]
+            target_label: instance
+          - target_label: __address__
+            replacement: prometheus-blackbox-prometheus-blackbox-exporter.monitoring:9115

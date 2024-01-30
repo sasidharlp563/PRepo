@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: middleware
+  name: middleware
+  namespace: middleware
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: middleware
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: middleware
+    spec:
+      containers:
+      - env:
+        - name: DB_HOST
+          value: "mysql-0.mysql.dbs"
+        - name: DB_PORT
+          value: "3306"
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: mysql-creds
+              key: MYSQL_DATABASE
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-creds
+              key: MYSQL_PASSWORD
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: mysql-creds
+              key: MYSQL_USER
+        image: suresha52/plivo:v1
+        imagePullPolicy: IfNotPresent
+        name: middleware
+        ports:
+        - containerPort: 80
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 1
+            memory: 512Mi
+          requests:
+            cpu: 250m
+            memory: 32Mi
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /health-check
+            port: 80
+            scheme: HTTP
+        livenessProbe:
+          httpGet:
+            path: /health-check
+            port: 80
+      dnsPolicy: ClusterFirst
+      imagePullSecrets:
+      - name: regcred
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      tolerations:
+      - key: workload
+        operator: Equal
+        value: middleware
+        effect: NoSchedule

@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: mysql
+  namespace: dbs
+spec:
+  podSelector:
+    matchLabels:
+      app: mysql
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchExpressions:
+            - key: namespace
+              operator: In
+              values: ["dbs", "middleware"]
+        - podSelector:
+            matchExpressions:
+            - key: app
+              operator: In
+              values: ["dbs", "middleware"]
+  egress:
+  - {}
